@@ -1,0 +1,334 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Escala de picor: cuánto más picantes son los ajíes extremos</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; background: #fafafa; color: #222; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  p.sub { color: #555; margin-top: 0; font-size: 14px; }
+  #controls { margin: 12px 0; font-size: 14px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+  select { font-size: 14px; padding: 3px; margin-left: 6px; }
+  #chart-wrap { overflow-x: auto; border: 1px solid #ccc; background: white; }
+  svg { display: block; }
+  .bar { cursor: pointer; }
+  .bar:hover { opacity: 0.7; }
+  .bar.selected { stroke: #000; stroke-width: 2px; }
+  #detail { margin-top: 14px; padding: 10px; border: 1px solid #ccc; background: white; font-size: 14px; min-height: 70px; }
+  #detail b { display: inline-block; min-width: 90px; }
+  .legend { margin-top: 10px; font-size: 13px; }
+  .legend span { display: inline-block; margin-right: 14px; }
+  .swatch { display: inline-block; width: 12px; height: 12px; margin-right: 4px; vertical-align: middle; }
+  #hint { font-size: 12px; color: #777; margin-top: 6px; }
+
+  .term {
+    position: relative;
+    color: #c62828;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    cursor: help;
+  }
+  .term .tooltip {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    left: 0;
+    top: 125%;
+    width: 320px;
+    max-width: 80vw;
+    background: #222;
+    color: #fff;
+    font-size: 13px;
+    font-weight: normal;
+    line-height: 1.4;
+    text-decoration: none;
+    padding: 10px 12px;
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+    z-index: 10;
+    transition: opacity 0.15s ease;
+  }
+  .term:hover .tooltip {
+    visibility: visible;
+    opacity: 1;
+  }
+</style>
+</head>
+<body>
+
+<h1>¿Qué tan picante es "picante"? <span class="term">Escala de Scoville<span class="tooltip">La escala de Scoville mide el picor de un ají en SHU (Scoville Heat Units): a mayor número, más capsaicina —el compuesto responsable del picor— y más diluciones con agua azucarada se necesitan para que ese picor deje de percibirse. Un pimentón (0 SHU) no pica nada; la Pepper X (~2.700.000 SHU) necesita diluirse esa cantidad de veces antes de dejar de arder.</span></span> de 215 variedades de ají</h1>
+<p class="sub">Cada barra es una variedad, ordenada de menor a mayor pungencia máxima (escala logarítmica de SHU). Clic en una barra para ver detalles y escuchar su nivel de picor.</p>
+
+<div id="controls">
+  Filtrar por región:
+  <select id="regionFilter"></select>
+</div>
+
+<div id="chart-wrap">
+  <svg id="chart"></svg>
+</div>
+
+<div class="legend" id="legend"></div>
+
+<div id="detail">Selecciona una barra para ver los detalles de esa variedad.</div>
+<div id="hint">Cada barra flota entre el picor mínimo y máximo reportado de la variedad. El sonido asocia un tono más agudo a mayor picor (SHU), y un timbre distinto según la categoría de picor.</div>
+
+
+<script>
+const PEPPER_DATA = [{"name": "Apollo Pepper", "shuMin": 2500000, "shuMax": 3000000, "band": "Super-Hot", "species": "C. chinense", "origin": "USA"}, {"name": "Pepper X", "shuMin": 2693000, "shuMax": 2693000, "band": "Super-Hot", "species": "C. chinense", "origin": "USA"}, {"name": "Dragon's Breath", "shuMin": 2480000, "shuMax": 2500000, "band": "Super-Hot", "species": "C. chinense", "origin": "United Kingdom"}, {"name": "Carolina Reaper", "shuMin": 1400000, "shuMax": 2200000, "band": "Super-Hot", "species": "C. chinense", "origin": "USA"}, {"name": "Komodo Dragon Pepper", "shuMin": 1400000, "shuMax": 2200000, "band": "Super-Hot", "species": "C. chinense", "origin": "England"}, {"name": "Trinidad Moruga Scorpion", "shuMin": 1200000, "shuMax": 2009231, "band": "Super-Hot", "species": "C. chinense", "origin": "Trinidad"}, {"name": "Chocolate Bhutlah", "shuMin": 1000000, "shuMax": 2000000, "band": "Super-Hot", "species": "C. chinense", "origin": "USA"}, {"name": "7 Pot Douglah", "shuMin": 923000, "shuMax": 1853396, "band": "Super-Hot", "species": "C. chinense", "origin": "Trinidad and Tobago"}, {"name": "7 Pot Primo", "shuMin": 800000, "shuMax": 1790150, "band": "Super-Hot", "species": "C. chinense", "origin": "Louisiana, USA"}, {"name": "Dorset Naga", "shuMin": 800000, "shuMax": 1600000, "band": "Super-Hot", "species": "C. chinense", "origin": "United Kingdom"}, {"name": "7 Pot Katie", "shuMin": 1500000, "shuMax": 1590000, "band": "Super-Hot", "species": "C. chinense", "origin": "United Kingdom"}, {"name": "Naga Morich", "shuMin": 1000000, "shuMax": 1500000, "band": "Super-Hot", "species": "C. chinense", "origin": "Bangladesh / Northeast India"}, {"name": "Trinidad Scorpion Butch T", "shuMin": 800000, "shuMax": 1463700, "band": "Super-Hot", "species": "C. chinense", "origin": "Trinidad"}, {"name": "Naga Viper", "shuMin": 900000, "shuMax": 1382118, "band": "Super-Hot", "species": "C. chinense", "origin": "England"}, {"name": "7 Pot Brain Strain", "shuMin": 1000000, "shuMax": 1350000, "band": "Super-Hot", "species": "C. chinense", "origin": "USA"}, {"name": "7 Pot Barrackpore", "shuMin": 1000000, "shuMax": 1300000, "band": "Super-Hot", "species": "C. chinense", "origin": "Trinidad"}, {"name": "7 Pot Red Giant", "shuMin": 800000, "shuMax": 1300000, "band": "Super-Hot", "species": "C. chinense", "origin": "Trinidad"}, {"name": "7 Pot Jonah", "shuMin": 800000, "shuMax": 1200000, "band": "Super-Hot", "species": "C. chinense", "origin": "Trinidad"}, {"name": "7 Pot Yellow", "shuMin": 800000, "shuMax": 1200000, "band": "Super-Hot", "species": "C. chinense", "origin": "Trinidad"}, {"name": "Bedfordshire Super Naga", "shuMin": 900000, "shuMax": 1120000, "band": "Super-Hot", "species": "C. chinense", "origin": "United Kingdom"}, {"name": "Infinity Chili", "shuMin": 1067286, "shuMax": 1067286, "band": "Super-Hot", "species": "C. chinense", "origin": "England"}, {"name": "Ghost Pepper", "shuMin": 855000, "shuMax": 1041427, "band": "Super-Hot", "species": "C. chinense", "origin": "India"}, {"name": "Bhut Jolokia Chocolate", "shuMin": 800000, "shuMax": 1001304, "band": "Super-Hot", "species": "C. chinense", "origin": "India"}, {"name": "7 Pot White", "shuMin": 800000, "shuMax": 1000000, "band": "Super-Hot", "species": "C. chinense", "origin": "Trinidad"}, {"name": "Bhut Jolokia White", "shuMin": 800000, "shuMax": 1000000, "band": "Super-Hot", "species": "C. chinense", "origin": "India"}, {"name": "Bhut Jolokia Yellow", "shuMin": 800000, "shuMax": 1000000, "band": "Super-Hot", "species": "C. chinense", "origin": "India"}, {"name": "Jay's Peach Ghost Scorpion", "shuMin": 1000000, "shuMax": 1000000, "band": "Super-Hot", "species": "C. chinense", "origin": "Pennsylvania, USA"}, {"name": "Nagabon", "shuMin": 750000, "shuMax": 800000, "band": "Extra-Hot", "species": "C. chinense", "origin": "USA"}, {"name": "Red Savina Habanero", "shuMin": 350000, "shuMax": 580000, "band": "Extra-Hot", "species": "C. chinense", "origin": "USA"}, {"name": "Chocolate Habanero", "shuMin": 425000, "shuMax": 575000, "band": "Extra-Hot", "species": "C. chinense", "origin": "Caribbean"}, {"name": "Caribbean Red Habanero", "shuMin": 300000, "shuMax": 475000, "band": "Extra-Hot", "species": "C. chinense", "origin": "Caribbean"}, {"name": "Fatalii", "shuMin": 125000, "shuMax": 400000, "band": "Extra-Hot", "species": "C. chinense", "origin": "Central Africa"}, {"name": "Hot Paper Lantern Pepper", "shuMin": 150000, "shuMax": 400000, "band": "Extra-Hot", "species": "C. chinense", "origin": "Origin not listed"}, {"name": "Aji Chombo", "shuMin": 150000, "shuMax": 350000, "band": "Extra-Hot", "species": "C. chinense", "origin": "Panama"}, {"name": "Chocolate Scotch Bonnet", "shuMin": 100000, "shuMax": 350000, "band": "Extra-Hot", "species": "C. chinense", "origin": "Caribbean"}, {"name": "Habanero", "shuMin": 100000, "shuMax": 350000, "band": "Extra-Hot", "species": "C. chinense", "origin": "Mexico"}, {"name": "Madame Jeanette", "shuMin": 100000, "shuMax": 350000, "band": "Extra-Hot", "species": "C. chinense", "origin": "Suriname"}, {"name": "Scotch Bonnet", "shuMin": 100000, "shuMax": 350000, "band": "Extra-Hot", "species": "C. chinense", "origin": "Caribbean"}, {"name": "White Habanero", "shuMin": 100000, "shuMax": 350000, "band": "Extra-Hot", "species": "C. chinense", "origin": "Mexico"}, {"name": "Wiri Wiri", "shuMin": 100000, "shuMax": 350000, "band": "Extra-Hot", "species": "C. chinense", "origin": "Guyana"}, {"name": "Yellow Scotch Bonnet", "shuMin": 100000, "shuMax": 350000, "band": "Extra-Hot", "species": "C. chinense", "origin": "Origin not listed"}, {"name": "Orange Habanero", "shuMin": 150000, "shuMax": 325000, "band": "Extra-Hot", "species": "C. chinense", "origin": "Mexico"}, {"name": "Congo Trinidad", "shuMin": 150000, "shuMax": 300000, "band": "Extra-Hot", "species": "C. chinense", "origin": "Trinidad"}, {"name": "Datil Pepper", "shuMin": 100000, "shuMax": 300000, "band": "Extra-Hot", "species": "C. chinense", "origin": "USA"}, {"name": "Pimenta de Neyde", "shuMin": 100000, "shuMax": 250000, "band": "Extra-Hot", "species": "C. chinense", "origin": "Brazil"}, {"name": "Jamaican Hot Chocolate", "shuMin": 100000, "shuMax": 200000, "band": "Extra-Hot", "species": "C. chinense", "origin": "Jamaica"}, {"name": "Piri Piri Pepper", "shuMin": 50000, "shuMax": 175000, "band": "Extra-Hot", "species": "C. frutescens", "origin": "Mozambique / Southern Africa"}, {"name": "Charleston Hot", "shuMin": 70000, "shuMax": 120000, "band": "Extra-Hot", "species": "C. annuum", "origin": "USA"}, {"name": "Aji Cito", "shuMin": 80000, "shuMax": 100000, "band": "Hot", "species": "C. baccatum", "origin": "Peru"}, {"name": "Bird's Eye Chili", "shuMin": 50000, "shuMax": 100000, "band": "Hot", "species": "C. annuum", "origin": "Mexico, Central America, or South America; now grown in South and Southeast Asia"}, {"name": "Cabe Rawit", "shuMin": 50000, "shuMax": 100000, "band": "Hot", "species": "C. frutescens", "origin": "Indonesia"}, {"name": "Chiltepin", "shuMin": 50000, "shuMax": 100000, "band": "Hot", "species": "C. annuum", "origin": "Mexico"}, {"name": "Kanthari Chili", "shuMin": 50000, "shuMax": 100000, "band": "Hot", "species": "C. frutescens", "origin": "India"}, {"name": "Malagueta Pepper", "shuMin": 60000, "shuMax": 100000, "band": "Hot", "species": "C. frutescens", "origin": "Brazil"}, {"name": "Prik Jinda", "shuMin": 50000, "shuMax": 100000, "band": "Hot", "species": "C. annuum", "origin": "Thailand"}, {"name": "Prik Kee Noo", "shuMin": 50000, "shuMax": 100000, "band": "Hot", "species": "Capsicum spp.", "origin": "Thailand"}, {"name": "Rocoto", "shuMin": 30000, "shuMax": 100000, "band": "Hot", "species": "C. pubescens", "origin": "Peru"}, {"name": "Siling Labuyo", "shuMin": 80000, "shuMax": 100000, "band": "Hot", "species": "C. frutescens", "origin": "Philippines"}, {"name": "Sugar Rush Peach", "shuMin": 50000, "shuMax": 100000, "band": "Hot", "species": "C. baccatum", "origin": "Wales, United Kingdom"}, {"name": "Sugar Rush Stripey", "shuMin": 50000, "shuMax": 100000, "band": "Hot", "species": "C. baccatum", "origin": "USA"}, {"name": "Teja Chili", "shuMin": 50000, "shuMax": 100000, "band": "Hot", "species": "C. annuum", "origin": "India"}, {"name": "Thai Chili", "shuMin": 50000, "shuMax": 100000, "band": "Hot", "species": "C. annuum", "origin": "Thailand"}, {"name": "Thai Dragon", "shuMin": 50000, "shuMax": 100000, "band": "Hot", "species": "C. annuum", "origin": "Thailand"}, {"name": "Prairie Fire", "shuMin": 70000, "shuMax": 80000, "band": "Hot", "species": "C. annuum", "origin": "USA"}, {"name": "Tien Tsin", "shuMin": 50000, "shuMax": 75000, "band": "Hot", "species": "C. annuum", "origin": "China"}, {"name": "Yatsufusa Pepper", "shuMin": 75000, "shuMax": 75000, "band": "Hot", "species": "Capsicum annuum", "origin": "Japan"}, {"name": "Piquin Pepper", "shuMin": 30000, "shuMax": 60000, "band": "Hot", "species": "C. annuum", "origin": "Mexico"}, {"name": "Aji Amarillo", "shuMin": 30000, "shuMax": 50000, "band": "Hot", "species": "C. baccatum", "origin": "Peru"}, {"name": "Aji Charapita", "shuMin": 30000, "shuMax": 50000, "band": "Hot", "species": "C. chinense", "origin": "Peruvian Amazon"}, {"name": "Aji Cristal", "shuMin": 30000, "shuMax": 50000, "band": "Hot", "species": "C. baccatum", "origin": "Chile"}, {"name": "Aji Limo", "shuMin": 30000, "shuMax": 50000, "band": "Hot", "species": "C. chinense", "origin": "Peru"}, {"name": "Aji Mirasol", "shuMin": 30000, "shuMax": 50000, "band": "Hot", "species": "C. baccatum", "origin": "Peru"}, {"name": "Aji Omnicolor", "shuMin": 30000, "shuMax": 50000, "band": "Hot", "species": "C. baccatum", "origin": "Peru"}, {"name": "Aurora Pepper", "shuMin": 30000, "shuMax": 50000, "band": "Hot", "species": "C. annuum", "origin": "Mexico"}, {"name": "Buena Mulata", "shuMin": 30000, "shuMax": 50000, "band": "Hot", "species": "C. annuum", "origin": "USA"}, {"name": "Cayenne Pepper", "shuMin": 30000, "shuMax": 50000, "band": "Hot", "species": "C. annuum", "origin": "Cayenne, French Guiana (namesake)"}, {"name": "Facing Heaven Pepper", "shuMin": 30000, "shuMax": 50000, "band": "Hot", "species": "C. annuum", "origin": "China"}, {"name": "Goat Horn Pepper", "shuMin": 20000, "shuMax": 50000, "band": "Hot", "species": "C. annuum", "origin": "Thailand / Taiwan seller lines; name disputed"}, {"name": "NuMex Twilight", "shuMin": 30000, "shuMax": 50000, "band": "Hot", "species": "C. annuum", "origin": "USA"}, {"name": "Reshampatti Chili", "shuMin": 40000, "shuMax": 50000, "band": "Hot", "species": "C. annuum", "origin": "India"}, {"name": "Santaka Pepper", "shuMin": 40000, "shuMax": 50000, "band": "Hot", "species": "C. annuum", "origin": "Japan"}, {"name": "Tabasco Pepper", "shuMin": 30000, "shuMax": 50000, "band": "Hot", "species": "C. frutescens", "origin": "Mexico"}, {"name": "Red Pepper Flakes", "shuMin": 15000, "shuMax": 45000, "band": "Hot", "species": "C. annuum", "origin": "Global"}, {"name": "Calabrian Chili", "shuMin": 25000, "shuMax": 40000, "band": "Hot", "species": "C. annuum", "origin": "Calabria, Italy"}, {"name": "Guntur Chili", "shuMin": 35000, "shuMax": 40000, "band": "Hot", "species": "C. annuum", "origin": "India"}, {"name": "Guntur Sannam", "shuMin": 35000, "shuMax": 40000, "band": "Hot", "species": "Capsicum annuum var. longum", "origin": "Guntur, Andhra Pradesh, India"}, {"name": "Dundicut Pepper", "shuMin": 30000, "shuMax": 35000, "band": "Hot", "species": "C. annuum", "origin": "Pakistan"}, {"name": "Aji Colorado", "shuMin": 20000, "shuMax": 30000, "band": "Hot", "species": "C. baccatum", "origin": "Origin not listed"}, {"name": "Aji Pineapple", "shuMin": 20000, "shuMax": 30000, "band": "Hot", "species": "C. baccatum", "origin": "Peru"}, {"name": "Bishop's Crown", "shuMin": 5000, "shuMax": 30000, "band": "Hot", "species": "C. baccatum", "origin": "Barbados"}, {"name": "Black Pearl Pepper", "shuMin": 10000, "shuMax": 30000, "band": "Hot", "species": "C. annuum", "origin": "USA"}, {"name": "Bolivian Rainbow Pepper", "shuMin": 10000, "shuMax": 30000, "band": "Hot", "species": "Capsicum annuum", "origin": "Bolivia"}, {"name": "Bulgarian Carrot Pepper", "shuMin": 5000, "shuMax": 30000, "band": "Hot", "species": "Capsicum annuum", "origin": "Bulgaria"}, {"name": "Chinese 5 Color", "shuMin": 10000, "shuMax": 30000, "band": "Hot", "species": "C. annuum", "origin": "China"}, {"name": "Count Dracula Pepper", "shuMin": 5000, "shuMax": 30000, "band": "Hot", "species": "C. annuum", "origin": "Unknown"}, {"name": "Criolla Sella Pepper", "shuMin": 15000, "shuMax": 30000, "band": "Hot", "species": "C. baccatum", "origin": "Bolivia"}, {"name": "De Arbol", "shuMin": 15000, "shuMax": 30000, "band": "Hot", "species": "C. annuum", "origin": "Mexico"}, {"name": "Fish Pepper", "shuMin": 5000, "shuMax": 30000, "band": "Hot", "species": "C. annuum", "origin": "USA"}, {"name": "Hinkelhatz Pepper", "shuMin": 5000, "shuMax": 30000, "band": "Hot", "species": "C. annuum", "origin": "USA"}, {"name": "Ho Chi Minh Hot Pepper", "shuMin": 5000, "shuMax": 30000, "band": "Hot", "species": "C. annuum", "origin": "Vietnamese seed line via Minnesota"}, {"name": "Inca Red Drop Pepper", "shuMin": 10000, "shuMax": 30000, "band": "Hot", "species": "C. baccatum", "origin": "Peru"}, {"name": "Japones Pepper", "shuMin": 15000, "shuMax": 30000, "band": "Hot", "species": "C. annuum", "origin": "Japan"}, {"name": "Jwala Pepper", "shuMin": 20000, "shuMax": 30000, "band": "Hot", "species": "C. annuum", "origin": "India"}, {"name": "Lemon Drop", "shuMin": 15000, "shuMax": 30000, "band": "Hot", "species": "C. baccatum", "origin": "Peru"}, {"name": "Little Elf Pepper", "shuMin": 20000, "shuMax": 30000, "band": "Hot", "species": "C. annuum", "origin": "Unknown"}, {"name": "Manzano Pepper", "shuMin": 12000, "shuMax": 30000, "band": "Hot", "species": "C. pubescens", "origin": "Mexico"}, {"name": "Peperoncino", "shuMin": 15000, "shuMax": 30000, "band": "Hot", "species": "C. annuum", "origin": "Italy"}, {"name": "Royal Black Pepper", "shuMin": 5000, "shuMax": 30000, "band": "Hot", "species": "C. annuum", "origin": "Unknown"}, {"name": "Sanam Chili", "shuMin": 25000, "shuMax": 30000, "band": "Hot", "species": "C. annuum", "origin": "India"}, {"name": "Togarashi Pepper", "shuMin": 15000, "shuMax": 30000, "band": "Hot", "species": "Capsicum annuum", "origin": "Japan / East Asia culinary usage"}, {"name": "Pasilla de Oaxaca", "shuMin": 15000, "shuMax": 25000, "band": "Hot", "species": "C. annuum", "origin": "Mexico"}, {"name": "Cheongyang Pepper", "shuMin": 10000, "shuMax": 23000, "band": "Hot", "species": "C. annuum", "origin": "South Korea"}, {"name": "Peter Pepper", "shuMin": 10000, "shuMax": 23000, "band": "Hot", "species": "C. annuum", "origin": "USA"}, {"name": "Serrano Pepper", "shuMin": 10000, "shuMax": 23000, "band": "Hot", "species": "C. annuum", "origin": "Mexico"}, {"name": "Sport Pepper", "shuMin": 10000, "shuMax": 23000, "band": "Hot", "species": "Capsicum annuum", "origin": "Mexico"}, {"name": "Byadgi Chili", "shuMin": 8000, "shuMax": 15000, "band": "Hot", "species": "C. annuum", "origin": "India"}, {"name": "Hungarian Hot Wax", "shuMin": 1500, "shuMax": 15000, "band": "Hot", "species": "C. annuum", "origin": "Hungary"}, {"name": "Hungarian Wax", "shuMin": 1500, "shuMax": 15000, "band": "Hot", "species": "C. annuum", "origin": "Hungary"}, {"name": "Aleppo Pepper", "shuMin": 10000, "shuMax": 10000, "band": "Hot", "species": "C. annuum", "origin": "Syria"}, {"name": "Black Hungarian Pepper", "shuMin": 2500, "shuMax": 10000, "band": "Hot", "species": "Capsicum annuum", "origin": "Hungary"}, {"name": "Fresno Pepper", "shuMin": 2500, "shuMax": 10000, "band": "Hot", "species": "C. annuum", "origin": "USA"}, {"name": "Gochugaru", "shuMin": 1500, "shuMax": 10000, "band": "Hot", "species": "C. annuum", "origin": "Korea"}, {"name": "Gochugaru Flakes", "shuMin": 1500, "shuMax": 10000, "band": "Hot", "species": "C. annuum", "origin": "Korea"}, {"name": "Isot Pepper", "shuMin": 5000, "shuMax": 10000, "band": "Hot", "species": "C. annuum", "origin": "Turkey"}, {"name": "Korean Green Pepper", "shuMin": 1500, "shuMax": 10000, "band": "Hot", "species": "C. annuum", "origin": "Korea"}, {"name": "Lumbre Pepper", "shuMin": 9000, "shuMax": 10000, "band": "Hot", "species": "Capsicum annuum", "origin": "New Mexico, USA"}, {"name": "Morita Pepper", "shuMin": 2500, "shuMax": 10000, "band": "Hot", "species": "C. annuum", "origin": "Mexico"}, {"name": "Urfa Biber", "shuMin": 5000, "shuMax": 10000, "band": "Hot", "species": "C. annuum", "origin": "Turkey"}, {"name": "NuMex Heritage Big Jim", "shuMin": 9500, "shuMax": 9500, "band": "Medium", "species": "C. annuum", "origin": "New Mexico, USA"}, {"name": "Aji Panca", "shuMin": 1500, "shuMax": 8400, "band": "Medium", "species": "C. chinense", "origin": "Peru"}, {"name": "Chipotle", "shuMin": 2500, "shuMax": 8000, "band": "Medium", "species": "C. annuum", "origin": "Mexico"}, {"name": "Hatch Chile", "shuMin": 1000, "shuMax": 8000, "band": "Medium", "species": "C. annuum", "origin": "USA"}, {"name": "Jalapeño", "shuMin": 2500, "shuMax": 8000, "band": "Medium", "species": "C. annuum", "origin": "Mexico"}, {"name": "Maras Pepper", "shuMin": 4000, "shuMax": 8000, "band": "Medium", "species": "C. annuum", "origin": "Turkey"}, {"name": "New Mexico Chile", "shuMin": 1000, "shuMax": 8000, "band": "Medium", "species": "C. annuum", "origin": "New Mexico, USA"}, {"name": "Pretty in Purple Pepper", "shuMin": 4000, "shuMax": 8000, "band": "Medium", "species": "C. annuum", "origin": "USA"}, {"name": "Purple Jalapeño", "shuMin": 2500, "shuMax": 8000, "band": "Medium", "species": "Capsicum annuum", "origin": "Mexico"}, {"name": "Puya Pepper", "shuMin": 5000, "shuMax": 8000, "band": "Medium", "species": "C. annuum", "origin": "Mexico"}, {"name": "Red Jalapeño", "shuMin": 2500, "shuMax": 8000, "band": "Medium", "species": "C. annuum", "origin": "Mexico"}, {"name": "Rezha Macedonian", "shuMin": 1000, "shuMax": 8000, "band": "Medium", "species": "Capsicum annuum", "origin": "North Macedonia"}, {"name": "Sandia Pepper", "shuMin": 5000, "shuMax": 7000, "band": "Medium", "species": "C. annuum", "origin": "New Mexico, USA"}, {"name": "Chimayo Pepper", "shuMin": 4000, "shuMax": 6000, "band": "Medium", "species": "C. annuum", "origin": "USA"}, {"name": "Jalafuego Pepper", "shuMin": 4000, "shuMax": 6000, "band": "Medium", "species": "C. annuum", "origin": "Mexico"}, {"name": "Cherry Bomb Pepper", "shuMin": 2500, "shuMax": 5000, "band": "Medium", "species": "Capsicum annuum", "origin": "United States"}, {"name": "Costeño Pepper", "shuMin": 2500, "shuMax": 5000, "band": "Medium", "species": "C. annuum", "origin": "Mexico"}, {"name": "Cowhorn Pepper", "shuMin": 2500, "shuMax": 5000, "band": "Medium", "species": "Capsicum annuum", "origin": "USA"}, {"name": "Guajillo Pepper", "shuMin": 2500, "shuMax": 5000, "band": "Medium", "species": "C. annuum", "origin": "Mexico"}, {"name": "Mirasol Pepper", "shuMin": 2500, "shuMax": 5000, "band": "Medium", "species": "C. annuum", "origin": "Mexico"}, {"name": "NuMex Centennial Pepper", "shuMin": 1000, "shuMax": 5000, "band": "Medium", "species": "C. annuum", "origin": "USA"}, {"name": "Sangria Pepper", "shuMin": 2000, "shuMax": 5000, "band": "Medium", "species": "C. annuum", "origin": "USA"}, {"name": "Cajun Belle", "shuMin": 500, "shuMax": 4000, "band": "Medium", "species": "C. annuum", "origin": "USA"}, {"name": "Cascabella Pepper", "shuMin": 1500, "shuMax": 4000, "band": "Medium", "species": "C. annuum", "origin": "Origin not listed"}, {"name": "Espelette Pepper", "shuMin": 1500, "shuMax": 4000, "band": "Medium", "species": "C. annuum", "origin": "France"}, {"name": "Cascabel Pepper", "shuMin": 1000, "shuMax": 3000, "band": "Medium", "species": "C. annuum", "origin": "Mexico"}, {"name": "Mulato Pepper", "shuMin": 2500, "shuMax": 3000, "band": "Medium", "species": "C. annuum", "origin": "Mexico"}, {"name": "NuMex Big Jim", "shuMin": 500, "shuMax": 3000, "band": "Medium", "species": "C. annuum", "origin": "USA"}, {"name": "Numex Easter", "shuMin": 1000, "shuMax": 3000, "band": "Medium", "species": "C. annuum", "origin": "USA"}, {"name": "Anaheim Pepper", "shuMin": 500, "shuMax": 2500, "band": "Medium", "species": "C. annuum", "origin": "USA"}, {"name": "Chilaca Pepper", "shuMin": 1000, "shuMax": 2500, "band": "Medium", "species": "Capsicum annuum", "origin": "Mexico"}, {"name": "Chilhuacle Pepper", "shuMin": 1500, "shuMax": 2500, "band": "Medium", "species": "Capsicum annuum", "origin": "Mexico"}, {"name": "Padrón Pepper", "shuMin": 500, "shuMax": 2500, "band": "Medium", "species": "C. annuum", "origin": "Spain"}, {"name": "Pasilla Pepper", "shuMin": 1000, "shuMax": 2500, "band": "Medium", "species": "C. annuum", "origin": "Mexico"}, {"name": "Rocotillo Pepper", "shuMin": 1500, "shuMax": 2500, "band": "Medium", "species": "Capsicum baccatum / Capsicum chinense", "origin": "Peru / Caribbean"}, {"name": "Ancho Pepper", "shuMin": 1000, "shuMax": 2000, "band": "Medium", "species": "C. annuum", "origin": "Mexico"}, {"name": "Guindilla Pepper", "shuMin": 1000, "shuMax": 2000, "band": "Medium", "species": "C. annuum", "origin": "Spain"}, {"name": "Kashmiri Chili", "shuMin": 1000, "shuMax": 2000, "band": "Medium", "species": "C. annuum", "origin": "India"}, {"name": "Poblano Pepper", "shuMin": 1000, "shuMax": 2000, "band": "Medium", "species": "C. annuum", "origin": "Mexico"}, {"name": "NuMex Heritage 6-4", "shuMin": 1500, "shuMax": 1500, "band": "Medium", "species": "Capsicum annuum", "origin": "USA"}, {"name": "Alma Paprika", "shuMin": 500, "shuMax": 1000, "band": "Medium", "species": "C. annuum", "origin": "Hungary"}, {"name": "Beaver Dam Pepper", "shuMin": 500, "shuMax": 1000, "band": "Medium", "species": "C. annuum", "origin": "Beaver Dam, Wisconsin"}, {"name": "Chilly Chili Pepper", "shuMin": 1, "shuMax": 1000, "band": "Medium", "species": "C. annuum", "origin": "USA"}, {"name": "Cubanelle Pepper", "shuMin": 100, "shuMax": 1000, "band": "Medium", "species": "C. annuum", "origin": "Cuba"}, {"name": "Long Hot Italian", "shuMin": 100, "shuMax": 1000, "band": "Medium", "species": "C. annuum", "origin": "Italy"}, {"name": "Mad Hatter Pepper", "shuMin": 500, "shuMax": 1000, "band": "Medium", "species": "C. baccatum", "origin": "United States"}, {"name": "Medusa Pepper", "shuMin": 1, "shuMax": 1000, "band": "Medium", "species": "C. annuum", "origin": "USA"}, {"name": "Mexibell Pepper", "shuMin": 100, "shuMax": 1000, "band": "Medium", "species": "Capsicum annuum", "origin": "Origin not listed"}, {"name": "Paprika Pepper", "shuMin": 0, "shuMax": 1000, "band": "Medium", "species": "C. annuum", "origin": "Hungary"}, {"name": "Piquillo Pepper", "shuMin": 500, "shuMax": 1000, "band": "Medium", "species": "C. annuum", "origin": "Spain"}, {"name": "Smoked Paprika (Pimentón)", "shuMin": 250, "shuMax": 1000, "band": "Medium", "species": "C. annuum", "origin": "Spain"}, {"name": "Ñora Pepper", "shuMin": 500, "shuMax": 1000, "band": "Medium", "species": "C. annuum", "origin": "Spain"}, {"name": "NuMex Joe E. Parker", "shuMin": 900, "shuMax": 900, "band": "Mild", "species": "C. annuum", "origin": "New Mexico, USA"}, {"name": "Holy Mole Pepper", "shuMin": 700, "shuMax": 800, "band": "Mild", "species": "Capsicum annuum", "origin": "Origin not listed"}, {"name": "Lombok Pepper", "shuMin": 0, "shuMax": 800, "band": "Mild", "species": "C. annuum", "origin": "Yogyakarta / Lombok, Indonesia"}, {"name": "NuMex Suave Orange", "shuMin": 0, "shuMax": 800, "band": "Mild", "species": "C. chinense", "origin": "USA"}, {"name": "Santa Fe Grande", "shuMin": 500, "shuMax": 700, "band": "Mild", "species": "C. annuum", "origin": "New Mexico, USA"}, {"name": "Peppadew Pepper", "shuMin": 280, "shuMax": 650, "band": "Mild", "species": "C. baccatum", "origin": "South Africa"}, {"name": "Mariachi Pepper", "shuMin": 500, "shuMax": 600, "band": "Mild", "species": "Capsicum annuum", "origin": "Origin not listed"}, {"name": "Aji Dulce", "shuMin": 0, "shuMax": 500, "band": "Mild", "species": "C. chinense", "origin": "Caribbean and Venezuela"}, {"name": "Banana Pepper", "shuMin": 0, "shuMax": 500, "band": "Mild", "species": "C. annuum", "origin": "Origin not listed"}, {"name": "Biquinho Pepper", "shuMin": 80, "shuMax": 500, "band": "Mild", "species": "C. chinense", "origin": "Brazil"}, {"name": "Bullhorn Pepper", "shuMin": 0, "shuMax": 500, "band": "Mild", "species": "C. annuum", "origin": "Italy"}, {"name": "Cherry Pepper", "shuMin": 100, "shuMax": 500, "band": "Mild", "species": "C. annuum", "origin": "USA"}, {"name": "Corno di Toro", "shuMin": 0, "shuMax": 500, "band": "Mild", "species": "C. annuum", "origin": "Italy"}, {"name": "Friggitello", "shuMin": 100, "shuMax": 500, "band": "Mild", "species": "C. annuum", "origin": "Italy"}, {"name": "Jimmy Nardello", "shuMin": 0, "shuMax": 500, "band": "Mild", "species": "C. annuum", "origin": "Italy"}, {"name": "Lipstick Pepper", "shuMin": 0, "shuMax": 500, "band": "Mild", "species": "C. annuum", "origin": "USA"}, {"name": "Marconi Pepper", "shuMin": 0, "shuMax": 500, "band": "Mild", "species": "C. annuum", "origin": "Italy"}, {"name": "Pepperoncini", "shuMin": 100, "shuMax": 500, "band": "Mild", "species": "C. annuum", "origin": "Italy"}, {"name": "Pimento Pepper", "shuMin": 100, "shuMax": 500, "band": "Mild", "species": "C. annuum", "origin": "Spain"}, {"name": "Ramiro Pepper", "shuMin": 0, "shuMax": 500, "band": "Mild", "species": "C. annuum", "origin": "Spain"}, {"name": "Trinidad Perfume", "shuMin": 0, "shuMax": 500, "band": "Mild", "species": "C. chinense", "origin": "Trinidad"}, {"name": "Choricero Pepper", "shuMin": 175, "shuMax": 300, "band": "Mild", "species": "C. annuum", "origin": "Spain"}, {"name": "Shishito Pepper", "shuMin": 50, "shuMax": 200, "band": "Mild", "species": "C. annuum", "origin": "Japan"}, {"name": "Carmen Pepper", "shuMin": 0, "shuMax": 100, "band": "Mild", "species": "C. annuum", "origin": "USA"}, {"name": "Sweet Italian Pepper", "shuMin": 0, "shuMax": 100, "band": "Mild", "species": "C. annuum", "origin": "Italy"}, {"name": "Tangerine Dream Pepper", "shuMin": 0, "shuMax": 100, "band": "Mild", "species": "C. annuum", "origin": "USA"}, {"name": "Bell Pepper", "shuMin": 0, "shuMax": 0, "band": "Mild", "species": "C. annuum", "origin": "Americas"}, {"name": "California Wonder Pepper", "shuMin": 0, "shuMax": 0, "band": "Mild", "species": "Capsicum annuum", "origin": "United States"}, {"name": "Fushimi Pepper", "shuMin": 0, "shuMax": 0, "band": "Mild", "species": "C. annuum", "origin": "Japan"}, {"name": "Gypsy Pepper", "shuMin": 0, "shuMax": 0, "band": "Mild", "species": "Capsicum annuum", "origin": "Origin not listed"}, {"name": "Habanada", "shuMin": 0, "shuMax": 0, "band": "Mild", "species": "C. chinense", "origin": "USA"}, {"name": "Melrose Pepper", "shuMin": 0, "shuMax": 0, "band": "Mild", "species": "C. annuum", "origin": "USA/Italy"}, {"name": "Peperone di Senise", "shuMin": 0, "shuMax": 0, "band": "Mild", "species": "C. annuum", "origin": "Italy"}, {"name": "Purple Beauty Pepper", "shuMin": 0, "shuMax": 0, "band": "Mild", "species": "C. annuum", "origin": "S. America"}, {"name": "Sichuan Pepper", "shuMin": 0, "shuMax": 0, "band": "Mild", "species": "Zanthoxylum bungeanum / Zanthoxylum simulans", "origin": "Sichuan, China"}];
+
+// Color continuo según el valor de Scoville (log): de un rojo muy tenue a un rojo muy saturado.
+const SHU_LOG_MAX = Math.log10(3000000 + 1);
+function heatColor(t) {            // t: 0..1 (posición en la escala log de SHU)
+  const s = 60 + 40 * t;           // saturación 60% -> 100%
+  const l = 90 - 72 * t;           // luminosidad 90% -> 18% (rojo muy oscuro y profundo arriba)
+  return `hsl(0, ${s.toFixed(1)}%, ${l.toFixed(1)}%)`;
+}
+function colorAtShu(v) {
+  return heatColor(Math.min(1, Math.max(0, shuScaleLog(v) / SHU_LOG_MAX)));
+}
+// colores de la leyenda: el color del gradiente en un SHU representativo de cada categoría
+const bandColor = {
+  "Suave": colorAtShu(300),
+  "Medio": colorAtShu(3000),
+  "Picante": colorAtShu(30000),
+  "Extra Picante": colorAtShu(300000),
+  "Súper Picante": colorAtShu(1500000)
+};
+const bandOrder = ["Suave","Medio","Picante","Extra Picante","Súper Picante"];
+const bandWave = {
+  "Suave": "sine",
+  "Medio": "sine",
+  "Picante": "triangle",
+  "Extra Picante": "sawtooth",
+  "Súper Picante": "square"
+};
+const bandTranslate = {
+  "Mild": "Suave",
+  "Medium": "Medio",
+  "Hot": "Picante",
+  "Extra-Hot": "Extra Picante",
+  "Super-Hot": "Súper Picante"
+};
+PEPPER_DATA.forEach(d => { d.band = bandTranslate[d.band] || d.band; });
+
+let data = PEPPER_DATA.slice().sort((a,b) => a.shuMax - b.shuMax);
+
+// --- region classification (crudo: por palabras clave sobre el texto libre de Origin) ---
+const REGION_ORDER = ["Norteamérica","Centroamérica y el Caribe","Sudamérica","Europa","África","Asia","Oceanía","Otro / no especificado"];
+const REGION_KEYWORDS = {
+  "Norteamérica": ["usa","united states","america","new mexico","louisiana","pennsylvania","wisconsin","california","minnesota","canada"],
+  "Centroamérica y el Caribe": ["mexico","méxico","caribbean","trinidad","jamaica","cuba","panama","suriname","guyana","barbados","tobago"],
+  "Sudamérica": ["peru","bolivia","brazil","chile","venezuela","amazon","s. america","south america"],
+  "Europa": ["uk","united kingdom","england","wales","france","spain","italy","hungary","bulgaria","macedonia","germany"],
+  "África": ["africa","mozambique"],
+  "Asia": ["india","thailand","indonesia","philippines","japan","china","korea","turkey","syria","pakistan","bangladesh","vietnam","taiwan"],
+  "Oceanía": ["australia","new zealand"]
+};
+function classifyRegion(origin) {
+  const o = (origin || "").toLowerCase();
+  if (!o || o.includes("not listed") || o.includes("unknown")) return "Otro / no especificado";
+  for (const region of REGION_ORDER) {
+    const kws = REGION_KEYWORDS[region];
+    if (kws && kws.some(k => o.includes(k))) return region;
+  }
+  return "Otro / no especificado";
+}
+PEPPER_DATA.forEach(d => { d.region = classifyRegion(d.origin); });
+
+// region filter dropdown
+const regionFilter = document.getElementById('regionFilter');
+const optAllRegion = document.createElement('option');
+optAllRegion.value = "__all__"; optAllRegion.textContent = "Todas las regiones";
+regionFilter.appendChild(optAllRegion);
+REGION_ORDER.forEach(r => {
+  if (!PEPPER_DATA.some(d => d.region === r)) return;
+  const o = document.createElement('option');
+  o.value = r; o.textContent = r;
+  regionFilter.appendChild(o);
+});
+regionFilter.addEventListener('change', () => {
+  render(regionFilter.value);
+});
+
+// leyenda: barra de gradiente continuo, de Suave a Súper Picante (misma paleta que las barras)
+const legendEl = document.getElementById('legend');
+(function buildLegend() {
+  const N = 24;
+  const stops = [];
+  for (let k = 0; k < N; k++) stops.push(`${heatColor(k / (N - 1))} ${(100 * k / (N - 1)).toFixed(1)}%`);
+  legendEl.innerHTML = `
+    <div style="width:420px; max-width:100%;">
+      <div style="height:14px; border-radius:2px; background:linear-gradient(to right, ${stops.join(', ')});"></div>
+      <div style="display:flex; justify-content:space-between; margin-top:4px;">
+        <span style="margin:0;">Suave</span>
+        <span style="margin:0;">Súper Picante</span>
+      </div>
+    </div>`;
+})();
+
+const svg = document.getElementById('chart');
+const margin = {top: 20, right: 20, bottom: 55, left: 85};
+const colW = 6;        // ancho de cada columna (una variedad por columna)
+const plotH = 420;     // alto del área de dibujo
+
+function shuScaleLog(v) {
+  // log scale, avoid log(0)
+  return Math.log10(Math.max(v, 1) + 1);
+}
+
+function render(filterRegion) {
+  let rows = PEPPER_DATA.slice();
+  if (filterRegion && filterRegion !== "__all__") {
+    rows = rows.filter(d => d.region === filterRegion);
+  }
+  // de menor a mayor picor máximo (izquierda -> derecha)
+  rows.sort((a,b) => a.shuMax - b.shuMax);
+
+  const plotW = rows.length * colW;
+  const width = margin.left + plotW + margin.right;
+  const height = margin.top + plotH + margin.bottom;
+  svg.setAttribute('width', width);
+  svg.setAttribute('height', height);
+  svg.innerHTML = '';
+
+  const maxLog = shuScaleLog(3000000);
+  const yOf = v => margin.top + plotH - (shuScaleLog(v) / maxLog) * plotH;
+  const NS = 'http://www.w3.org/2000/svg';
+
+  // gradiente vertical que abarca todo el eje Y: el color depende del valor SHU de cada altura,
+  // así una barra cambia de color a lo largo de su rango (shuMin -> shuMax)
+  const defs = document.createElementNS(NS,'defs');
+  const grad = document.createElementNS(NS,'linearGradient');
+  grad.setAttribute('id', 'heatGrad');
+  grad.setAttribute('gradientUnits', 'userSpaceOnUse');
+  grad.setAttribute('x1', 0);
+  grad.setAttribute('x2', 0);
+  grad.setAttribute('y1', margin.top + plotH); // abajo = poco picor
+  grad.setAttribute('y2', margin.top);         // arriba = mucho picor
+  const NSTOPS = 24;
+  for (let k = 0; k < NSTOPS; k++) {
+    const stop = document.createElementNS(NS,'stop');
+    stop.setAttribute('offset', (k / (NSTOPS - 1)).toFixed(4));
+    stop.setAttribute('stop-color', heatColor(k / (NSTOPS - 1)));
+    grad.appendChild(stop);
+  }
+  defs.appendChild(grad);
+  svg.appendChild(defs);
+
+  // eje Y: ticks en escala logarítmica
+  const ticks = [0, 100, 1000, 10000, 100000, 1000000, 3000000];
+  ticks.forEach(t => {
+    const y = yOf(t);
+    const line = document.createElementNS(NS,'line');
+    line.setAttribute('x1', margin.left);
+    line.setAttribute('x2', margin.left + plotW);
+    line.setAttribute('y1', y);
+    line.setAttribute('y2', y);
+    line.setAttribute('stroke', '#eee');
+    svg.appendChild(line);
+
+    const label = document.createElementNS(NS,'text');
+    label.setAttribute('x', margin.left - 6);
+    label.setAttribute('y', y + 4);
+    label.setAttribute('text-anchor', 'end');
+    label.setAttribute('font-size', '10px');
+    label.setAttribute('fill', '#666');
+    label.textContent = t.toLocaleString();
+    svg.appendChild(label);
+  });
+
+  // barras flotantes verticales: van de shuMin a shuMax
+  rows.forEach((d, i) => {
+    const yTop = yOf(d.shuMax);
+    const yBottom = yOf(d.shuMin);
+    const x = margin.left + i * colW;
+
+    const rect = document.createElementNS(NS,'rect');
+    rect.setAttribute('x', x);
+    rect.setAttribute('y', yTop);
+    rect.setAttribute('width', colW - 1);
+    rect.setAttribute('height', Math.max(yBottom - yTop, 2)); // alto mínimo si el rango es nulo
+    rect.setAttribute('fill', 'url(#heatGrad)');
+    rect.setAttribute('class', 'bar');
+    rect.dataset.name = d.name;
+
+    rect.addEventListener('mouseenter', () => showTooltip(d));
+    rect.addEventListener('click', () => selectPepper(rect, d));
+
+    svg.appendChild(rect);
+  });
+
+  // título eje Y (rotado), aclarando que es escala logarítmica
+  const yTitle = document.createElementNS(NS,'text');
+  yTitle.setAttribute('x', -(margin.top + plotH / 2));
+  yTitle.setAttribute('y', 18);
+  yTitle.setAttribute('text-anchor', 'middle');
+  yTitle.setAttribute('font-size', '12px');
+  yTitle.setAttribute('fill', '#333');
+  yTitle.setAttribute('transform', 'rotate(-90)');
+  yTitle.textContent = 'Picor en SHU (escala logarítmica)';
+  svg.appendChild(yTitle);
+
+  // título eje X
+  const xTitle = document.createElementNS(NS,'text');
+  xTitle.setAttribute('x', margin.left + plotW / 2);
+  xTitle.setAttribute('y', height - 14);
+  xTitle.setAttribute('text-anchor', 'middle');
+  xTitle.setAttribute('font-size', '12px');
+  xTitle.setAttribute('fill', '#333');
+  xTitle.textContent = 'Variedades de ají (ordenadas de menor a mayor picor máximo)';
+  svg.appendChild(xTitle);
+}
+
+function showTooltip(d) {
+  // lightweight hover info without playing sound
+}
+
+let currentSelected = null;
+function selectPepper(rect, d) {
+  if (currentSelected) currentSelected.classList.remove('selected');
+  rect.classList.add('selected');
+  currentSelected = rect;
+
+  document.getElementById('detail').innerHTML = `
+    <div><b>Nombre:</b> ${d.name}</div>
+    <div><b>Especie:</b> ${d.species}</div>
+    <div><b>Origen:</b> ${d.origin} (${d.region})</div>
+    <div><b>SHU:</b> ${d.shuMin.toLocaleString()} – ${d.shuMax.toLocaleString()}</div>
+    <div><b>Categoría:</b> ${d.band}</div>
+  `;
+
+  playTone(d);
+}
+
+// --- sonification ---
+let audioCtx;
+function playTone(d) {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const maxLog = shuScaleLog(3000000);
+  const t = shuScaleLog(d.shuMax) / maxLog; // 0..1
+  const freq = 150 + t * 1400; // low pitch = mild, high pitch = super-hot
+
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = bandWave[d.band] || 'sine';
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+  gain.gain.linearRampToValueAtTime(0.25, audioCtx.currentTime + 0.03);
+  gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.6);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.65);
+}
+
+render("__all__");
+</script>
+
+</body>
+</html>
+
+</body></html>
