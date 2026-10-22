@@ -4,4 +4,4 @@ Github Pages: https://mannicchiarico.github.io/iic2026-grupo-7-E1/
 Además, utilizamos una carpeta de OneDrive a lo largo del semestre por su facilidad de uso:
 https://uccl0-my.sharepoint.com/:f:/g/personal/vortize_estudiante_uc_cl/IgC_WpM9vvASQKKDmrv4kXvKAYNEVzHd-mErOUVXf18PB0I?e=NWKf9O
 
-Información importante: Cada carpeta representa una revisión/entrega. Dentro de cada una, la versión final es la que se llama index.html
+:heavy_exclamation_mark: Información importante: Cada carpeta representa una revisión/entrega. Dentro de cada una, la versión final es la que se llama index.html
